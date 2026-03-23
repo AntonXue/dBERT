@@ -84,7 +84,7 @@ fi
 METHOD="${METHODS[$SLURM_ARRAY_TASK_ID]}"
 
 # --- Training config (overridable via env) ---
-MAX_STEPS="${MAX_STEPS:-100000}"
+MAX_STEPS="${MAX_STEPS:-200000}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 GRAD_ACCUM="${GRAD_ACCUM:-4}"
 LEARNING_RATE="${LR:-1e-4}"

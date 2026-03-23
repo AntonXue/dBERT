@@ -16,7 +16,7 @@ set -e
 
 METHOD="${1:?Usage: $0 <mlm|dlm>}"
 
-MAX_STEPS="${MAX_STEPS:-100000}"
+MAX_STEPS="${MAX_STEPS:-200000}"
 BATCH_SIZE="${BATCH_SIZE:-128}"
 GRAD_ACCUM="${GRAD_ACCUM:-1}"
 LR="${LR:-1e-4}"
