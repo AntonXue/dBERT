@@ -18,6 +18,7 @@ from pathlib import Path
 
 import torch
 from datasets import load_dataset, concatenate_datasets, Dataset, load_from_disk
+from tqdm import tqdm
 from transformers import BertTokenizer
 
 TOKENIZER_NAME = "google-bert/bert-base-uncased"
@@ -38,11 +39,9 @@ def _tokenize_and_pack(dataset, tokenizer, max_length):
     non-overlapping sequences of exactly max_length. Drops the remainder.
     """
     all_ids = []
-    for i, ex in enumerate(dataset):
+    for ex in tqdm(dataset, desc="Tokenizing", unit="docs"):
         ids = tokenizer.encode(ex["text"], add_special_tokens=False)
         all_ids.extend(ids)
-        if (i + 1) % 500_000 == 0:
-            print(f"  tokenized {i+1}/{len(dataset)} docs, {len(all_ids)/1e6:.1f}M tokens so far")
 
     n_chunks = len(all_ids) // max_length
     if n_chunks == 0:
