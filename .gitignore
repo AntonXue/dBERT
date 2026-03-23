@@ -1,0 +1,18 @@
+# Checkpoints and model weights
+_saved_models/*/
+!_saved_models/.gitkeep
+
+# Eval outputs
+_eval_results/*/
+!_eval_results/.gitkeep
+
+# SLURM logs
+_slurm_out/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
