@@ -7,13 +7,13 @@
 #
 # Usage:
 #   sbatch -N 4 --array=0-1 --job-name=dbert train_slurm.sh
-#   sbatch -N 4 --array=0   --job-name=dbert_mlm train_slurm.sh   # MLM only
+#   sbatch -N 4 --array=0   --job-name=dmlm train_slurm.sh   # MLM only
 #   sbatch -N 4 --array=1   --job-name=dbert_dlm train_slurm.sh   # DLM only
 
 set -e
 
 # --- Two methods ---
-METHODS=("bert_mlm" "dlm")
+METHODS=("mlm" "dlm")
 
 # --- Auto-submit as job array if not already inside one ---
 if [ -z "$SLURM_ARRAY_TASK_ID" ] && [ -z "$SLURM_JOB_ID" ]; then

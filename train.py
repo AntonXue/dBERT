@@ -3,7 +3,7 @@
 Assumes data has been preprocessed via `python data.py`.
 
 Usage:
-  python train.py --method bert_mlm --output_dir _saved_models/bert_mlm
+  python train.py --method mlm --output_dir _saved_models/mlm
   python train.py --method dlm --output_dir _saved_models/dlm
 """
 
@@ -160,7 +160,7 @@ class DLMTrainer(Trainer):
 
 def main():
     p = argparse.ArgumentParser(description="dBERT: BERT MLM vs DLM training")
-    p.add_argument("--method", type=str, required=True, choices=["bert_mlm", "dlm"])
+    p.add_argument("--method", type=str, required=True, choices=["mlm", "dlm"])
     p.add_argument("--output_dir", type=str, required=True)
     p.add_argument("--max_steps", type=int, default=100000)
     p.add_argument("--batch_size", type=int, default=16)
@@ -211,7 +211,7 @@ def main():
         seed=args.seed,
     )
 
-    TrainerClass = MLMTrainer if args.method == "bert_mlm" else DLMTrainer
+    TrainerClass = MLMTrainer if args.method == "mlm" else DLMTrainer
     trainer = TrainerClass(
         model=model,
         args=training_args,

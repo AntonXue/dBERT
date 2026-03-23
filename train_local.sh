@@ -4,7 +4,7 @@
 # Default: batch_size=128 x 2 GPUs = 256 global batch (matches original BERT).
 #
 # Usage:
-#   ./train_local.sh bert_mlm   # Classic BERT MLM
+#   ./train_local.sh mlm   # Classic BERT MLM
 #   ./train_local.sh dlm        # Modern DLM
 #
 # Environment variables (optional):
@@ -14,7 +14,7 @@
 
 set -e
 
-METHOD="${1:?Usage: $0 <bert_mlm|dlm>}"
+METHOD="${1:?Usage: $0 <mlm|dlm>}"
 
 MAX_STEPS="${MAX_STEPS:-100000}"
 BATCH_SIZE="${BATCH_SIZE:-128}"

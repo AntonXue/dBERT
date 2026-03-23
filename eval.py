@@ -12,7 +12,7 @@ Three-way comparison:
   - DLM model  + iterative
 
 Usage:
-  python eval.py --checkpoint _saved_models/bert_mlm/final --mode independent
+  python eval.py --checkpoint _saved_models/mlm/final --mode independent
   python eval.py --checkpoint _saved_models/dlm/final --mode iterative
 """
 
