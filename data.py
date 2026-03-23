@@ -1,9 +1,16 @@
-"""Dataset loading for dBERT: BookCorpusOpen + English Wikipedia."""
+"""Dataset loading for dBERT: BookCorpusOpen + English Wikipedia.
 
-from datasets import load_dataset, concatenate_datasets
+Splits raw text 95/5, then tokenizes and packs each split into
+fixed-length chunks independently (no padding waste, no token leakage).
+"""
+
+import torch
+from datasets import load_dataset, concatenate_datasets, Dataset
 from transformers import BertTokenizer
 
 TOKENIZER_NAME = "google-bert/bert-base-uncased"
+EVAL_FRACTION = 0.05
+MAX_LENGTH = 512
 
 
 def load_tokenizer():
@@ -11,62 +18,71 @@ def load_tokenizer():
     return BertTokenizer.from_pretrained(TOKENIZER_NAME)
 
 
-def load_train_data():
-    """Load BookCorpusOpen + Wikipedia, downloaded to disk.
+def _tokenize_and_pack(dataset, tokenizer, max_length):
+    """Tokenize all texts and pack into fixed-length chunks.
 
-    BookCorpusOpen: ~74M sentences from ~17K books.
-    Wikipedia: English Wikipedia articles (20231101 snapshot).
-    Both have a 'text' column.
+    Concatenates all tokens into one flat stream, then splits into
+    non-overlapping sequences of exactly max_length. Drops the remainder.
     """
-    bookcorpus = load_dataset(
-        "lucadiliello/bookcorpusopen",
-        split="train",
-    )
-    wikipedia = load_dataset(
-        "wikimedia/wikipedia",
-        "20231101.en",
-        split="train",
-    )
-    # Keep only 'text' column from both
+    all_ids = []
+    for i, ex in enumerate(dataset):
+        ids = tokenizer.encode(ex["text"], add_special_tokens=False)
+        all_ids.extend(ids)
+        if (i + 1) % 500_000 == 0:
+            print(f"  tokenized {i+1}/{len(dataset)} docs, {len(all_ids)/1e6:.1f}M tokens so far")
+
+    n_chunks = len(all_ids) // max_length
+    if n_chunks == 0:
+        return Dataset.from_dict({"input_ids": []})
+
+    all_ids = all_ids[:n_chunks * max_length]
+    chunks = [all_ids[i * max_length:(i + 1) * max_length] for i in range(n_chunks)]
+    return Dataset.from_dict({"input_ids": chunks})
+
+
+def load_data(max_length=MAX_LENGTH, tokenizer=None):
+    """Load BookCorpusOpen + Wikipedia, split 95/5, tokenize and pack.
+
+    Returns (train_dataset, eval_dataset), where each has a single
+    'input_ids' column with packed token sequences of exactly max_length.
+
+    Split happens on raw documents BEFORE tokenization, so there is
+    zero token leakage between train and eval.
+    """
+    if tokenizer is None:
+        tokenizer = load_tokenizer()
+
+    # Load raw text
+    bookcorpus = load_dataset("lucadiliello/bookcorpusopen", split="train")
     bookcorpus = bookcorpus.select_columns(["text"])
-    wikipedia = wikipedia.select_columns(["text"])
 
-    dataset = concatenate_datasets([bookcorpus, wikipedia])
-    dataset = dataset.shuffle(seed=42)
-    return dataset
-
-
-def load_eval_data(num_samples=10000):
-    """Load a small eval set from Wikipedia for held-out evaluation.
-
-    Takes the last num_samples from the Wikipedia dataset to avoid
-    overlap with early training data.
-    """
-    wiki = load_dataset(
-        "wikimedia/wikipedia",
-        "20231101.en",
-        split="train",
-    )
+    wiki = load_dataset("wikimedia/wikipedia", "20231101.en", split="train")
     wiki = wiki.select_columns(["text"])
-    # Take from the end to avoid overlap with training
-    total = len(wiki)
-    eval_set = wiki.select(range(total - num_samples, total))
-    return eval_set
+
+    raw = concatenate_datasets([bookcorpus, wiki])
+    print(f"Total documents: {len(raw):,}")
+
+    # Split raw documents 95/5
+    splits = raw.train_test_split(test_size=EVAL_FRACTION, seed=42)
+    raw_train = splits["train"]
+    raw_eval = splits["test"]
+    print(f"Split: {len(raw_train):,} train docs, {len(raw_eval):,} eval docs")
+
+    # Tokenize and pack each split independently
+    print("Packing train split...")
+    train_dataset = _tokenize_and_pack(raw_train, tokenizer, max_length)
+    print(f"  -> {len(train_dataset):,} sequences of {max_length} tokens")
+
+    print("Packing eval split...")
+    eval_dataset = _tokenize_and_pack(raw_eval, tokenizer, max_length)
+    print(f"  -> {len(eval_dataset):,} sequences of {max_length} tokens")
+
+    return train_dataset, eval_dataset
 
 
-def make_collator(tokenizer, max_length=512):
-    """Collator that tokenizes and pads text to fixed length.
-
-    Returns dict with 'input_ids' tensor of shape (B, max_length).
-    """
+def make_collator():
+    """Collator for pre-packed sequences. Just stacks input_ids into a tensor."""
     def collate_fn(batch):
-        texts = [ex["text"] for ex in batch]
-        encodings = tokenizer(
-            texts,
-            max_length=max_length,
-            truncation=True,
-            padding="max_length",
-            return_tensors="pt",
-        )
-        return {"input_ids": encodings["input_ids"]}
+        input_ids = torch.tensor([ex["input_ids"] for ex in batch], dtype=torch.long)
+        return {"input_ids": input_ids}
     return collate_fn

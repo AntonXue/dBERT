@@ -22,7 +22,7 @@ import torch
 import torch.nn.functional as F
 from transformers import BertForMaskedLM
 
-from data import load_eval_data, make_collator, load_tokenizer
+from data import load_data, make_collator, load_tokenizer
 
 
 @torch.no_grad()
@@ -104,8 +104,8 @@ def main():
     model = BertForMaskedLM.from_pretrained(args.checkpoint).to(device).eval()
     tokenizer = load_tokenizer()
 
-    eval_data = load_eval_data(num_samples=args.num_eval_samples)
-    collator = make_collator(tokenizer, max_length=512)
+    _, eval_data = load_data(tokenizer=tokenizer)
+    collator = make_collator()
 
     results = {}
     for mask_rate in mask_rates:

@@ -20,7 +20,7 @@ from transformers import (
 )
 from pathlib import Path
 
-from data import load_tokenizer, load_train_data, make_collator
+from data import load_tokenizer, load_data, make_collator
 
 
 def is_main_process():
@@ -196,8 +196,8 @@ def main():
         print(f"MASK token: {tokenizer.mask_token_id} ({tokenizer.mask_token!r})")
         print(f"PAD token: {tokenizer.pad_token_id} ({tokenizer.pad_token!r})")
 
-    dataset = load_train_data()
-    collator = make_collator(tokenizer, args.max_length)
+    dataset, _ = load_data(max_length=args.max_length, tokenizer=tokenizer)
+    collator = make_collator()
 
     training_args = TrainingArguments(
         output_dir=args.output_dir,
