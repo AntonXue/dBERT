@@ -1,5 +1,7 @@
 """dBERT evaluation: accuracy vs mask rate with three inference modes.
 
+Assumes data has been preprocessed via `python data.py`.
+
 Modes:
   1. independent: Single forward pass, predict all masks at once (classic BERT usage)
   2. iterative:   Iterative unmasking loop (DLM generation method)
@@ -22,21 +24,19 @@ import torch
 import torch.nn.functional as F
 from transformers import BertForMaskedLM
 
-from data import load_data, make_collator, load_tokenizer
+from data import load_data, make_collator
+
+MASK_TOKEN_ID = 103
 
 
 @torch.no_grad()
-def evaluate_independent(model, input_ids, mask_rate, mask_token_id):
+def evaluate_independent(model, input_ids, mask_rate):
     """Mask tokens at given rate, predict all in one forward pass."""
     B, L = input_ids.shape
     device = input_ids.device
 
-    # Don't mask special tokens ([CLS]=101, [SEP]=102, [PAD]=0)
-    special = (input_ids == 0) | (input_ids == 101) | (input_ids == 102)
-    maskable = ~special
-
-    is_masked = (torch.rand(B, L, device=device) < mask_rate) & maskable
-    masked_ids = torch.where(is_masked, mask_token_id, input_ids)
+    is_masked = torch.rand(B, L, device=device) < mask_rate
+    masked_ids = torch.where(is_masked, MASK_TOKEN_ID, input_ids)
 
     logits = model(input_ids=masked_ids).logits
     preds = logits.argmax(dim=-1)
@@ -47,32 +47,26 @@ def evaluate_independent(model, input_ids, mask_rate, mask_token_id):
 
 
 @torch.no_grad()
-def evaluate_iterative(model, input_ids, mask_rate, mask_token_id,
-                       num_steps=64, temperature=0.0):
+def evaluate_iterative(model, input_ids, mask_rate, num_steps=64, temperature=0.0):
     """Mask tokens at given rate, recover via iterative unmasking."""
     B, L = input_ids.shape
     device = input_ids.device
 
-    special = (input_ids == 0) | (input_ids == 101) | (input_ids == 102)
-    maskable = ~special
+    is_target = torch.rand(B, L, device=device) < mask_rate
+    x = torch.where(is_target, MASK_TOKEN_ID, input_ids)
 
-    is_target = (torch.rand(B, L, device=device) < mask_rate) & maskable
-    x = torch.where(is_target, mask_token_id, input_ids)
-
-    # Iterative unmasking
     for step in range(num_steps):
-        is_masked = (x == mask_token_id) & is_target
+        is_masked = (x == MASK_TOKEN_ID) & is_target
         if not is_masked.any():
             break
 
         logits = model(input_ids=x).logits
 
-        # Fraction to unmask this step
         frac = 1.0 / (num_steps - step)
         unmask = is_masked & (torch.rand(B, L, device=device) < frac)
 
         if step == num_steps - 1:
-            unmask = is_masked  # Unmask all remaining
+            unmask = is_masked
 
         if temperature < 1e-6:
             sampled = logits.argmax(dim=-1)
@@ -92,7 +86,6 @@ def main():
     p.add_argument("--checkpoint", type=str, required=True)
     p.add_argument("--mode", type=str, required=True, choices=["independent", "iterative"])
     p.add_argument("--mask_rates", type=str, default="0.05,0.15,0.30,0.50,0.70,0.90")
-    p.add_argument("--num_eval_samples", type=int, default=1000)
     p.add_argument("--batch_size", type=int, default=32)
     p.add_argument("--num_steps", type=int, default=64, help="Steps for iterative mode")
     p.add_argument("--output_dir", type=str, default="_eval_results")
@@ -102,9 +95,8 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = BertForMaskedLM.from_pretrained(args.checkpoint).to(device).eval()
-    tokenizer = load_tokenizer()
 
-    _, eval_data = load_data(tokenizer=tokenizer)
+    _, eval_data = load_data()
     collator = make_collator()
 
     results = {}
@@ -117,9 +109,9 @@ def main():
             input_ids = batch["input_ids"].to(device)
 
             if args.mode == "independent":
-                c, t = evaluate_independent(model, input_ids, mask_rate, tokenizer.mask_token_id)
+                c, t = evaluate_independent(model, input_ids, mask_rate)
             else:
-                c, t = evaluate_iterative(model, input_ids, mask_rate, tokenizer.mask_token_id,
+                c, t = evaluate_iterative(model, input_ids, mask_rate,
                                           num_steps=args.num_steps)
             total_correct += c
             total_masked += t
@@ -128,7 +120,6 @@ def main():
         results[str(mask_rate)] = {"accuracy": acc, "correct": total_correct, "total": total_masked}
         print(f"  mask_rate={mask_rate:.2f}  acc={acc:.4f}  ({total_correct}/{total_masked})")
 
-    # Save results
     os.makedirs(args.output_dir, exist_ok=True)
     ckpt_name = os.path.basename(os.path.dirname(args.checkpoint))
     out_path = os.path.join(args.output_dir, f"{ckpt_name}_{args.mode}.json")

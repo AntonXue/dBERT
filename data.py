@@ -2,15 +2,28 @@
 
 Splits raw text 95/5, then tokenizes and packs each split into
 fixed-length chunks independently (no padding waste, no token leakage).
+
+Usage:
+  python data.py                    # Preprocess and save to _data/
+  python data.py --data_dir /path   # Custom output directory
+  python data.py --max_length 128   # Custom sequence length
+
+Then in training/eval scripts:
+  from data import load_data
+  train, eval = load_data()         # Loads from _data/ (fast)
 """
 
+import argparse
+from pathlib import Path
+
 import torch
-from datasets import load_dataset, concatenate_datasets, Dataset
+from datasets import load_dataset, concatenate_datasets, Dataset, load_from_disk
 from transformers import BertTokenizer
 
 TOKENIZER_NAME = "google-bert/bert-base-uncased"
 EVAL_FRACTION = 0.05
 MAX_LENGTH = 512
+DATA_DIR = Path("_data")
 
 
 def load_tokenizer():
@@ -40,17 +53,13 @@ def _tokenize_and_pack(dataset, tokenizer, max_length):
     return Dataset.from_dict({"input_ids": chunks})
 
 
-def load_data(max_length=MAX_LENGTH, tokenizer=None):
-    """Load BookCorpusOpen + Wikipedia, split 95/5, tokenize and pack.
+def prepare_data(data_dir=DATA_DIR, max_length=MAX_LENGTH):
+    """Download, tokenize, pack, and save train/eval splits to disk.
 
-    Returns (train_dataset, eval_dataset), where each has a single
-    'input_ids' column with packed token sequences of exactly max_length.
-
-    Split happens on raw documents BEFORE tokenization, so there is
-    zero token leakage between train and eval.
+    This is the slow step (~30-60 min). Run once, then load_data() is instant.
     """
-    if tokenizer is None:
-        tokenizer = load_tokenizer()
+    data_dir = Path(data_dir)
+    tokenizer = load_tokenizer()
 
     # Load raw text
     bookcorpus = load_dataset("lucadiliello/bookcorpusopen", split="train")
@@ -77,6 +86,33 @@ def load_data(max_length=MAX_LENGTH, tokenizer=None):
     eval_dataset = _tokenize_and_pack(raw_eval, tokenizer, max_length)
     print(f"  -> {len(eval_dataset):,} sequences of {max_length} tokens")
 
+    # Save to disk
+    data_dir.mkdir(parents=True, exist_ok=True)
+    train_dataset.save_to_disk(str(data_dir / "train"))
+    eval_dataset.save_to_disk(str(data_dir / "eval"))
+    print(f"Saved to {data_dir}/")
+
+    return train_dataset, eval_dataset
+
+
+def load_data(data_dir=DATA_DIR):
+    """Load pre-packed train/eval datasets from disk.
+
+    Run `python data.py` first to preprocess. If _data/ doesn't exist,
+    raises FileNotFoundError with instructions.
+    """
+    data_dir = Path(data_dir)
+    train_path = data_dir / "train"
+    eval_path = data_dir / "eval"
+
+    if not train_path.exists() or not eval_path.exists():
+        raise FileNotFoundError(
+            f"Preprocessed data not found at {data_dir}/. "
+            f"Run `python data.py` first to download and preprocess."
+        )
+
+    train_dataset = load_from_disk(str(train_path))
+    eval_dataset = load_from_disk(str(eval_path))
     return train_dataset, eval_dataset
 
 
@@ -86,3 +122,12 @@ def make_collator():
         input_ids = torch.tensor([ex["input_ids"] for ex in batch], dtype=torch.long)
         return {"input_ids": input_ids}
     return collate_fn
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description="Preprocess dBERT training data")
+    p.add_argument("--data_dir", type=str, default=str(DATA_DIR))
+    p.add_argument("--max_length", type=int, default=MAX_LENGTH)
+    args = p.parse_args()
+
+    prepare_data(data_dir=args.data_dir, max_length=args.max_length)

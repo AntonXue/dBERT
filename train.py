@@ -1,5 +1,7 @@
 """dBERT: Compare classic BERT MLM vs modern DLM training.
 
+Assumes data has been preprocessed via `python data.py`.
+
 Usage:
   python train.py --method bert_mlm --output_dir _saved_models/bert_mlm
   python train.py --method dlm --output_dir _saved_models/dlm
@@ -20,7 +22,11 @@ from transformers import (
 )
 from pathlib import Path
 
-from data import load_tokenizer, load_data, make_collator
+from data import load_data, make_collator
+
+# BERT special token IDs (fixed by vocabulary)
+MASK_TOKEN_ID = 103
+VOCAB_SIZE = 30522
 
 
 def is_main_process():
@@ -43,10 +49,8 @@ class JSONLLogger(TrainerCallback):
 class MLMTrainer(Trainer):
     """Classic BERT MLM: 15% masking with 80/10/10 corruption."""
 
-    def __init__(self, mask_token_id, vocab_size, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.mask_token_id = mask_token_id
-        self.vocab_size = vocab_size
         self._steps = 0
         self._loss_sum = 0.0
         self._acc_sum = 0.0
@@ -57,41 +61,32 @@ class MLMTrainer(Trainer):
         device = input_ids.device
 
         # Select 15% of tokens as targets
-        rand = torch.rand(B, L, device=device)
-        target_mask = rand < 0.15
-        # Don't mask special tokens ([CLS]=101, [SEP]=102, [PAD]=0)
-        special = (input_ids == 0) | (input_ids == 101) | (input_ids == 102)
-        target_mask = target_mask & ~special
+        target_mask = torch.rand(B, L, device=device) < 0.15
 
         # 80/10/10 corruption
         corruption_rand = torch.rand(B, L, device=device)
-        # 80%: replace with [MASK]
         mask_replace = target_mask & (corruption_rand < 0.8)
-        # 10%: replace with random token
         random_replace = target_mask & (corruption_rand >= 0.8) & (corruption_rand < 0.9)
-        # 10%: keep original (no replacement needed)
 
         corrupted_ids = input_ids.clone()
-        corrupted_ids[mask_replace] = self.mask_token_id
+        corrupted_ids[mask_replace] = MASK_TOKEN_ID
         corrupted_ids[random_replace] = torch.randint(
-            0, self.vocab_size, (random_replace.sum(),), device=device
+            0, VOCAB_SIZE, (random_replace.sum(),), device=device
         )
 
-        logits = model(input_ids=corrupted_ids).logits  # (B, L, V)
+        logits = model(input_ids=corrupted_ids).logits
         V = logits.size(-1)
 
         loss_full = F.cross_entropy(
             logits.view(B * L, V), input_ids.view(B * L), reduction="none"
         ).view(B, L)
 
-        # Loss only on target positions
         target_count = target_mask.sum().clamp(min=1)
         loss = (loss_full * target_mask).sum() / target_count
 
         with torch.no_grad():
             preds = logits.argmax(dim=-1)
             acc = ((preds == input_ids) & target_mask).sum().float() / target_count
-
             self._loss_sum += loss.item()
             self._acc_sum += acc.item()
             self._steps += 1
@@ -114,10 +109,8 @@ class MLMTrainer(Trainer):
 class DLMTrainer(Trainer):
     """Absorbing-state diffusion LM: uniform schedule, variable mask rate."""
 
-    def __init__(self, mask_token_id, pad_token_id, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.mask_token_id = mask_token_id
-        self.pad_token_id = pad_token_id
         self._steps = 0
         self._loss_sum = 0.0
         self._acc_sum = 0.0
@@ -130,9 +123,9 @@ class DLMTrainer(Trainer):
         # Uniform schedule: t ~ U(0,1), mask_prob = t
         t = torch.rand(B, 1, device=device)
         is_masked = torch.rand(B, L, device=device) < t
-        noisy_ids = torch.where(is_masked, self.mask_token_id, input_ids)
+        noisy_ids = torch.where(is_masked, MASK_TOKEN_ID, input_ids)
 
-        logits = model(input_ids=noisy_ids).logits  # (B, L, V)
+        logits = model(input_ids=noisy_ids).logits
         V = logits.size(-1)
 
         loss_full = F.cross_entropy(
@@ -143,11 +136,9 @@ class DLMTrainer(Trainer):
         loss = (loss_full * is_masked).sum(dim=1).mean() / L
 
         with torch.no_grad():
-            acc_mask = is_masked & (input_ids != self.pad_token_id)
-            acc_denom = acc_mask.sum().clamp(min=1)
+            masked_count = is_masked.sum().clamp(min=1)
             preds = logits.argmax(dim=-1)
-            acc = ((preds == input_ids) & acc_mask).sum().float() / acc_denom
-
+            acc = ((preds == input_ids) & is_masked).sum().float() / masked_count
             self._loss_sum += loss.item()
             self._acc_sum += acc.item()
             self._steps += 1
@@ -171,7 +162,6 @@ def main():
     p = argparse.ArgumentParser(description="dBERT: BERT MLM vs DLM training")
     p.add_argument("--method", type=str, required=True, choices=["bert_mlm", "dlm"])
     p.add_argument("--output_dir", type=str, required=True)
-    p.add_argument("--max_length", type=int, default=512)
     p.add_argument("--max_steps", type=int, default=100000)
     p.add_argument("--batch_size", type=int, default=16)
     p.add_argument("--gradient_accumulation_steps", type=int, default=4)
@@ -185,18 +175,14 @@ def main():
     torch.manual_seed(args.seed)
 
     # Fresh BERT model — random init, no pretrained weights
-    config = BertConfig()
-    model = BertForMaskedLM(config)
-    tokenizer = load_tokenizer()
+    model = BertForMaskedLM(BertConfig())
 
     if is_main_process():
         n = sum(p.numel() for p in model.parameters())
         print(f"Method: {args.method}")
         print(f"Model: BertForMaskedLM (fresh init, {n/1e6:.1f}M params)")
-        print(f"MASK token: {tokenizer.mask_token_id} ({tokenizer.mask_token!r})")
-        print(f"PAD token: {tokenizer.pad_token_id} ({tokenizer.pad_token!r})")
 
-    dataset, _ = load_data(max_length=args.max_length, tokenizer=tokenizer)
+    dataset, _ = load_data()
     collator = make_collator()
 
     training_args = TrainingArguments(
@@ -225,26 +211,14 @@ def main():
         seed=args.seed,
     )
 
-    if args.method == "bert_mlm":
-        trainer = MLMTrainer(
-            mask_token_id=tokenizer.mask_token_id,
-            vocab_size=config.vocab_size,
-            model=model,
-            args=training_args,
-            train_dataset=dataset,
-            data_collator=collator,
-            callbacks=[JSONLLogger(args.output_dir)] if is_main_process() else [],
-        )
-    else:
-        trainer = DLMTrainer(
-            mask_token_id=tokenizer.mask_token_id,
-            pad_token_id=tokenizer.pad_token_id,
-            model=model,
-            args=training_args,
-            train_dataset=dataset,
-            data_collator=collator,
-            callbacks=[JSONLLogger(args.output_dir)] if is_main_process() else [],
-        )
+    TrainerClass = MLMTrainer if args.method == "bert_mlm" else DLMTrainer
+    trainer = TrainerClass(
+        model=model,
+        args=training_args,
+        train_dataset=dataset,
+        data_collator=collator,
+        callbacks=[JSONLLogger(args.output_dir)] if is_main_process() else [],
+    )
 
     os.makedirs(args.output_dir, exist_ok=True)
     if is_main_process():
@@ -253,10 +227,8 @@ def main():
 
     trainer.train()
 
-    # Save final model
     if is_main_process():
         model.save_pretrained(os.path.join(args.output_dir, "final"))
-        tokenizer.save_pretrained(os.path.join(args.output_dir, "final"))
         print(f"Done. Logs at {args.output_dir}/training_log.jsonl")
 
 

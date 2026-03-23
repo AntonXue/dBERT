@@ -1,3 +1,6 @@
+# Preprocessed data
+_data/
+
 # Checkpoints and model weights
 _saved_models/*/
 !_saved_models/.gitkeep
