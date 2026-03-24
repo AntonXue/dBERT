@@ -19,7 +19,7 @@ set -e
 METHOD="${1:?Usage: $0 <mlm|dlm>}"
 
 MAX_STEPS="${MAX_STEPS:-100000}"
-BATCH_SIZE="${BATCH_SIZE:-64}"
+BATCH_SIZE="${BATCH_SIZE:-128}"
 LR="${LR:-1e-4}"
 SEED="${SEED:-42}"
 SAVE_STEPS="${SAVE_STEPS:-10000}"

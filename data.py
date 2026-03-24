@@ -7,6 +7,7 @@ Usage:
   python data.py                    # Preprocess and save to _data/
   python data.py --data_dir /path   # Custom output directory
   python data.py --max_length 128   # Custom sequence length
+  python data.py --num_workers 16   # Parallel tokenization workers
 
 Then in training/eval scripts:
   from data import load_data
@@ -14,12 +15,12 @@ Then in training/eval scripts:
 """
 
 import argparse
+import os
 from pathlib import Path
 
 import torch
 from datasets import load_dataset, concatenate_datasets, Dataset, load_from_disk
-from tqdm import tqdm
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 
 TOKENIZER_NAME = "google-bert/bert-base-uncased"
 EVAL_FRACTION = 0.05
@@ -29,33 +30,55 @@ DATA_DIR = Path("_data")
 
 def load_tokenizer():
     """Load BERT tokenizer. Provides [MASK] at id 103, [PAD] at id 0."""
-    return BertTokenizer.from_pretrained(TOKENIZER_NAME)
+    return AutoTokenizer.from_pretrained(TOKENIZER_NAME)
 
 
-def _tokenize_and_pack(dataset, tokenizer, max_length):
-    """Tokenize all texts and pack into fixed-length chunks.
+def _tokenize_and_pack(dataset, tokenizer, max_length, num_workers=None):
+    """Tokenize all texts in parallel and pack into fixed-length chunks.
 
-    Concatenates all tokens into one flat stream, then splits into
-    non-overlapping sequences of exactly max_length. Drops the remainder.
+    Uses HuggingFace .map() with multiprocessing for fast tokenization,
+    then concatenates all tokens and chunks into sequences of max_length.
     """
+    if num_workers is None:
+        num_workers = min(os.cpu_count(), 32)
+
+    # Batched tokenization in parallel
+    def tokenize_batch(examples):
+        return tokenizer(
+            examples["text"],
+            add_special_tokens=False,
+            return_attention_mask=False,
+        )
+
+    tokenized = dataset.map(
+        tokenize_batch,
+        batched=True,
+        batch_size=1000,
+        num_proc=num_workers,
+        remove_columns=dataset.column_names,
+        desc="Tokenizing",
+    )
+
+    # Concatenate all token IDs into one flat stream
+    print("Packing tokens into fixed-length sequences...")
     all_ids = []
-    for ex in tqdm(dataset, desc="Tokenizing", unit="docs"):
-        ids = tokenizer.encode(ex["text"], add_special_tokens=False)
-        all_ids.extend(ids)
+    for ex in tokenized:
+        all_ids.extend(ex["input_ids"])
 
     n_chunks = len(all_ids) // max_length
     if n_chunks == 0:
         return Dataset.from_dict({"input_ids": []})
 
+    print(f"  {len(all_ids):,} tokens -> {n_chunks:,} sequences of {max_length}")
     all_ids = all_ids[:n_chunks * max_length]
     chunks = [all_ids[i * max_length:(i + 1) * max_length] for i in range(n_chunks)]
     return Dataset.from_dict({"input_ids": chunks})
 
 
-def prepare_data(data_dir=DATA_DIR, max_length=MAX_LENGTH):
+def prepare_data(data_dir=DATA_DIR, max_length=MAX_LENGTH, num_workers=None):
     """Download, tokenize, pack, and save train/eval splits to disk.
 
-    This is the slow step (~30-60 min). Run once, then load_data() is instant.
+    Run once, then load_data() is instant.
     """
     data_dir = Path(data_dir)
     tokenizer = load_tokenizer()
@@ -77,13 +100,13 @@ def prepare_data(data_dir=DATA_DIR, max_length=MAX_LENGTH):
     print(f"Split: {len(raw_train):,} train docs, {len(raw_eval):,} eval docs")
 
     # Tokenize and pack each split independently
-    print("Packing train split...")
-    train_dataset = _tokenize_and_pack(raw_train, tokenizer, max_length)
-    print(f"  -> {len(train_dataset):,} sequences of {max_length} tokens")
+    print("Processing train split...")
+    train_dataset = _tokenize_and_pack(raw_train, tokenizer, max_length, num_workers)
+    print(f"  -> {len(train_dataset):,} sequences")
 
-    print("Packing eval split...")
-    eval_dataset = _tokenize_and_pack(raw_eval, tokenizer, max_length)
-    print(f"  -> {len(eval_dataset):,} sequences of {max_length} tokens")
+    print("Processing eval split...")
+    eval_dataset = _tokenize_and_pack(raw_eval, tokenizer, max_length, num_workers)
+    print(f"  -> {len(eval_dataset):,} sequences")
 
     # Save to disk
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -127,6 +150,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Preprocess dBERT training data")
     p.add_argument("--data_dir", type=str, default=str(DATA_DIR))
     p.add_argument("--max_length", type=int, default=MAX_LENGTH)
+    p.add_argument("--num_workers", type=int, default=None)
     args = p.parse_args()
 
-    prepare_data(data_dir=args.data_dir, max_length=args.max_length)
+    prepare_data(data_dir=args.data_dir, max_length=args.max_length, num_workers=args.num_workers)

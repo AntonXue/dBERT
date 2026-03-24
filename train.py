@@ -205,7 +205,7 @@ def main():
         save_steps=args.save_steps,
         save_total_limit=2,
         remove_unused_columns=False,
-        dataloader_num_workers=4,
+        dataloader_num_workers=8,
         ignore_data_skip=True,
         report_to="none",
         seed=args.seed,
