@@ -166,8 +166,8 @@ def main():
     p.add_argument("--batch_size", type=int, default=128)
     p.add_argument("--gradient_accumulation_steps", type=int, default=1)
     p.add_argument("--learning_rate", type=float, default=1e-4)
-    p.add_argument("--warmup_ratio", type=float, default=0.01)
-    p.add_argument("--logging_steps", type=int, default=10)
+    p.add_argument("--warmup_steps", type=int, default=500)
+    p.add_argument("--logging_steps", type=int, default=5)
     p.add_argument("--save_steps", type=int, default=10000)
     p.add_argument("--seed", type=int, default=42)
     args = p.parse_args()
@@ -191,19 +191,19 @@ def main():
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         lr_scheduler_type="constant_with_warmup",
-        warmup_ratio=args.warmup_ratio,
+        warmup_steps=args.warmup_steps,
         weight_decay=0.01,
         max_grad_norm=1.0,
         max_steps=args.max_steps,
         optim="adamw_torch",
         adam_beta1=0.9,
-        adam_beta2=0.95,
+        adam_beta2=0.999,
         bf16=True,
         tf32=True,
         logging_steps=args.logging_steps,
         logging_first_step=True,
         save_steps=args.save_steps,
-        save_total_limit=3,
+        save_total_limit=2,
         remove_unused_columns=False,
         dataloader_num_workers=4,
         ignore_data_skip=True,
