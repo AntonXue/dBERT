@@ -170,6 +170,8 @@ def main():
     p.add_argument("--logging_steps", type=int, default=5)
     p.add_argument("--save_steps", type=int, default=10000)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--resume_from_checkpoint", type=str, default=None,
+                    help="Path to checkpoint dir to resume from (e.g. _saved_models/dlm_.../checkpoint-100000)")
     args = p.parse_args()
 
     torch.manual_seed(args.seed)
@@ -225,7 +227,7 @@ def main():
         with open(os.path.join(args.output_dir, "args.json"), "w") as f:
             json.dump(vars(args), f, indent=2)
 
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
 
     if is_main_process():
         model.save_pretrained(os.path.join(args.output_dir, "final"))
