@@ -5,9 +5,8 @@ _data/
 _saved_models/*/
 !_saved_models/.gitkeep
 
-# Eval outputs
-_eval_results/*/
-!_eval_results/.gitkeep
+# Pipeline outputs (generations + scores)
+_outputs/
 
 # SLURM logs
 _slurm_out/
