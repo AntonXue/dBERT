@@ -95,6 +95,40 @@ Evaluation on 512 held-out sequences at varying mask rates. Iterative unmasking 
 | 70% | 0.136 | 0.963 | **0.969** |
 | 90% | 0.009 | 0.724 | **0.941** |
 
+### Qualitative Examples (90% masking)
+
+Two examples from each method, showing 512-token sequences with ~90% of tokens masked and reconstructed.
+
+**MLM + independent** -- produces degenerate "the the the of of" repetitions:
+
+> **Original:** the golden globet award for best screenplay ( ) is a prize given to the films in the main category of competition at the shanghai international film festival. award winners references lists of films by award shanghai international film festival hypancistrus contradens is a species of armored catfish endemic to venezuela where it occurs in the orinoco river...
+
+> **Reconstructed:** the film of of.... the it is a of of the. films. the main film.. at the. of of. the award at references the of the the the the of of the hypical of the the the the the the the the the the the the the.. it is the...... oftracista.... of of of............ by by nathan........ by. bae.,,,, 2007...
+
+> **Original:** trophy for men and the taylor trophy for women. commonwealth games organised by the commonwealth games federation. first held in 1930, the commonwealth games bowls championships for men and women are held every 4 years. women's events were added from 1982. four gold medals are competed for in the singles, pairs, triples and fours...
+
+> **Reconstructed:** . for the.. taylor'the. the the the the the the the indoor federation. references links links the the the the...... there are hosted in.......... there. four world. the........... the the world bowls indoor indoor. the the world outdoor indoor bowls.................... the the the the the the in...
+
+**MLM + iterative** -- grammatically coherent but topically drifts:
+
+> **Original:** the golden globet award for best screenplay ( ) is a prize given to the films in the main category of competition at the shanghai international film festival...
+
+> **Reconstructed:** before 2018. references external links official website 2008 establishments in venezuela iguata populated places in the united states populated places in the philippines international latin american alumni award winners national university of venezuela alumni award for latin american alumni h. g. laurmaque y maquilla ( died 1996 ), president of the university council the record is held by artist.
+
+> **Original:** trophy for men and the taylor trophy for women. commonwealth games organised by the commonwealth games federation. first held in 1930...
+
+> **Reconstructed:** championships in the sport are chosen except for the national events, organised by the european games held there only on the part of the european games every year ( but not by a jury every year for these championships ). there were a number of european championships and medals in the sport. the singles, singles, doubles, and singles are decided by the following events in two sports in each world.
+
+**DLM + iterative** -- coherent, topically grounded, reads like real encyclopedia text:
+
+> **Original:** the golden globet award for best screenplay ( ) is a prize given to the films in the main category of competition at the shanghai international film festival...
+
+> **Reconstructed:** was nominated for the award for best screenplay, and is nominated for best original screenplay. for best main film the bride at the 1st toronto international film festival. winners external links the bride at the festival website films set in toronto toronto ambellona annuensis is a species of ray - finn dorid fish in the family cerodinonithidae. cerodinoni fish of africa fish described in 1937...
+
+> **Original:** trophy for men and the taylor trophy for women. commonwealth games organised by the commonwealth games federation. first held in 1930...
+
+> **Reconstructed:** people 1980 births table tennis players from sydney the pacific bowls cup competition is part of the international bowls cup. in the world bowls cup competition, it is part of the world cup series. four gold medals of eight nations were awarded to the tournament. all medals are awarded for each in singles events ; bowls in singles, fours, and doubles. championships one pacific bowls world cup cham...
+
 ### Key Takeaways
 
 1. **At high mask rates, DLM training + iterative generation produces dramatically more coherent text.** At 90% masking, DLM maintains MAUVE=0.941 while MLM iterative drops to 0.724 and MLM independent collapses to 0.009.
