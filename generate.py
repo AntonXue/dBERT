@@ -75,10 +75,12 @@ def fill_iterative(model, input_ids, mask_rate, num_steps=64,
                    temperature=0.8, top_k=1000, remask_rate=0.1, eps=1e-2):
     """Mask tokens at given rate, recover via DLM-style iterative unmasking.
 
-    Uses the cosine schedule from alan-dlm/generation_utils.py:
-      alpha[0] ~ 0 (clean), alpha[T] = 1 (noisy)
-      Denoising walks t from T down to 1, transitioning alpha_t -> alpha_s
-      where s = t-1 < t (noisier -> cleaner).
+    Cosine schedule convention:
+      alpha[0] = 1 (fully noisy/masked)
+      alpha[T] ~ 0 (fully clean)
+
+    Denoising walks step from 0 to T-1. At each step we transition from
+    alpha[step] (noisier) to alpha[step+1] (cleaner).
     """
     B, L = input_ids.shape
     device = input_ids.device
@@ -87,22 +89,20 @@ def fill_iterative(model, input_ids, mask_rate, num_steps=64,
     is_prompt = ~is_target
     x = torch.where(is_target, MASK_TOKEN_ID, input_ids)
 
-    # Cosine schedule: alpha[0] ~ 0 (clean), alpha[T] = 1 (noisy)
+    # alpha[0] = 1 (noisy), alpha[T] ~ 0 (clean)
     ticks = torch.linspace(0.0, (math.pi / 2.0) - eps, num_steps + 1, device=device)
     alpha = torch.cos(ticks) ** 2
-    alpha = alpha.flip(0)
 
-    # Walk t from T down to 1
-    for t in reversed(range(1, num_steps + 1)):
+    for step in range(num_steps):
         is_masked = (x == MASK_TOKEN_ID)
         if not is_masked.any():
             break
 
         logits = model(input_ids=x).logits
-        alpha_t = alpha[t]      # current (noisier)
-        alpha_s = alpha[t - 1]  # target  (cleaner)
+        alpha_t = alpha[step]      # current (noisier, higher)
+        alpha_s = alpha[step + 1]  # target  (cleaner, lower)
 
-        if t > 1:
+        if step < num_steps - 1:
             p_unmask = (alpha_t - alpha_s) / (alpha_t + eps)
             to_unmask = torch.rand_like(is_masked.float()) < p_unmask
         else:
@@ -114,7 +114,7 @@ def fill_iterative(model, input_ids, mask_rate, num_steps=64,
 
         # Remasking: let the model reconsider earlier choices.
         # Remask more when noise is high (alpha_t close to 1), taper off near clean.
-        if t > 1 and remask_rate > 0.0:
+        if step < num_steps - 1 and remask_rate > 0.0:
             p_remask = remask_rate * alpha_t
             to_remask = (torch.rand(B, L, device=device) < p_remask) & ~is_masked & ~is_prompt
             x[to_remask] = MASK_TOKEN_ID
