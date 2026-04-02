@@ -72,7 +72,7 @@ def fill_independent(model, input_ids, mask_rate):
 
 @torch.no_grad()
 def fill_iterative(model, input_ids, mask_rate, num_steps=64,
-                   temperature=0.8, top_k=1000, sigma_scale=1.0, eps=1e-2):
+                   temperature=0.8, top_k=1000, sigma_scale=0.1, eps=1e-2):
     """Mask tokens at given rate, recover via DLM-style iterative unmasking.
 
     Cosine schedule convention (matches alan-dlm/generation_utils.py):
@@ -130,10 +130,10 @@ def main():
     p.add_argument("--mask_rates", type=str, default="0.05,0.15,0.30,0.50,0.70,0.90")
     p.add_argument("--num_samples", type=int, default=10000)
     p.add_argument("--batch_size", type=int, default=256)
-    p.add_argument("--num_steps", type=int, default=64, help="Steps for iterative mode")
+    p.add_argument("--num_steps", type=int, default=128, help="Steps for iterative mode")
     p.add_argument("--temperature", type=float, default=0.8)
     p.add_argument("--top_k", type=int, default=1000)
-    p.add_argument("--sigma_scale", type=float, default=1.0,
+    p.add_argument("--sigma_scale", type=float, default=0.1,
                     help="ReMDM remasking scale. 1.0=full ReMDM, 0.0=no remasking")
     p.add_argument("--dump_dir", type=str, default="_outputs")
     args = p.parse_args()

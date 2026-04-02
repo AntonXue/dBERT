@@ -57,43 +57,43 @@ We then evaluate with a three-way inference comparison:
 
 ## Results
 
-Evaluation on 512 held-out sequences at varying mask rates. Iterative unmasking uses a cosine schedule with 64 steps, temperature=0.8, top-k=1000, remask_rate=0.1.
+Evaluation on 5,000 held-out sequences at varying mask rates. Iterative unmasking uses a cosine schedule with 128 steps, temperature=0.8, top-k=1000, ReMDM remasking with sigma_scale=0.1.
 
 ### Token Accuracy
 
 | Mask Rate | MLM + independent | MLM + iterative | DLM + iterative |
 |---|---|---|---|
-| 5% | **66.1%** | 61.6% | 59.0% |
-| 15% | **61.6%** | 56.8% | 54.5% |
-| 30% | **53.0%** | 47.6% | 47.1% |
-| 50% | **39.4%** | 32.5% | 33.9% |
-| 70% | **22.8%** | 16.3% | 19.7% |
-| 90% | **8.6%** | 4.2% | 6.4% |
+| 5% | **65.8%** | 61.4% | 59.0% |
+| 15% | **61.4%** | 56.7% | 54.7% |
+| 30% | **53.1%** | 47.9% | 47.2% |
+| 50% | **39.0%** | 33.2% | 34.7% |
+| 70% | **23.0%** | 16.9% | 20.4% |
+| 90% | **8.1%** | 4.3% | 6.5% |
 
-### GPT-2 XL Perplexity (lower = more coherent)
+### GPT-2 XL Perplexity (median, lower = more coherent)
 
 | Mask Rate | Baseline | MLM + independent | MLM + iterative | DLM + iterative |
 |---|---|---|---|---|
-| -- | 25.3 | -- | -- | -- |
-| 5% | | **25.7** | 26.5 | 27.2 |
-| 15% | | **27.3** | 28.6 | 29.9 |
-| 30% | | **32.9** | 33.4 | 35.5 |
-| 50% | | 46.9 | 45.4 | **43.4** |
-| 70% | | 53.9 | 60.0 | **47.1** |
-| 90% | | 38.2* | 80.7 | **41.6** |
+| -- | 25.7 | -- | -- | -- |
+| 5% | | **26.2** | 26.8 | 27.2 |
+| 15% | | **27.9** | 29.4 | 30.5 |
+| 30% | | 34.0 | 34.6 | 36.2 |
+| 50% | | 50.0 | 45.7 | **44.2** |
+| 70% | | 56.8 | 58.1 | **48.9** |
+| 90% | | 36.2* | 66.6 | **40.8** |
 
-*\*MLM independent at 90% has deceptively low perplexity because it produces degenerate repetitive output ("the the the of of of") that scores well token-by-token but is incoherent.*
+*\*MLM independent at 90% has deceptively low perplexity because it produces degenerate repetitive output ("of of of references references references") that scores well token-by-token but is incoherent.*
 
 ### MAUVE Score (higher = more like real text)
 
 | Mask Rate | MLM + independent | MLM + iterative | DLM + iterative |
 |---|---|---|---|
-| 5% | 0.993 | 0.992 | 0.993 |
-| 15% | 0.991 | 0.986 | 0.988 |
-| 30% | 0.980 | 0.972 | 0.951 |
-| 50% | 0.864 | **0.986** | 0.960 |
-| 70% | 0.136 | 0.963 | **0.969** |
-| 90% | 0.009 | 0.724 | **0.941** |
+| 5% | **0.993** | 0.990 | 0.988 |
+| 15% | **0.984** | 0.979 | 0.979 |
+| 30% | 0.970 | **0.976** | 0.970 |
+| 50% | 0.767 | 0.954 | **0.961** |
+| 70% | 0.082 | 0.932 | **0.940** |
+| 90% | 0.007 | 0.523 | **0.882** |
 
 ### Qualitative Example (90% masking)
 
@@ -106,28 +106,28 @@ One 512-token sequence with ~90% of tokens masked, reconstructed by each method.
 </details>
 
 <details>
-<summary><b>MLM + independent</b> (446 of 512 tokens masked) -- degenerate "the the the of of" repetitions</summary>
+<summary><b>MLM + independent</b> (458 of 512 tokens masked) -- degenerate repetitions of high-frequency tokens</summary>
 
-> the film of of.... the it is a of of the. films. the main film.. at the. of of. the award at references the of the the the the of of the hypical of the the the the the the the the the the the the the.. it is the...... oftracista.... of of of............ by by nathan........ by. bae.,,,, 2007.. the the herald & herald,....... the the the the the the of the implied use of the communication. the the of the the the the the the the the the the the the the the the it had been the by the party. in the australian house of representatives. the of of of the. of the australian of the the the the the the the the the the the the. is an article by the............ the. that theophatic is the the the the the the as. as the by by theopha... in the the times in the.,.. in the same of the the the the the the. to publish the the of the political, as well as the way that the the the the the the the the to in their own. for the... three years later, with the. in the., the court of the supreme court court reversed.. in the.... the the the the the the the the the the the the the the the the the.. is of an important in in the the. the the the the the of of the list of the. of of of law of the of of of of the premier international. of the the the of the the the the the the the the the world tour of the the of of the the the the the the the the the the the the the the the the of. women in the. the world. of references the of of of of of of the the the the the the the the the the women'the the the... the. the the the the the there are the by the the the the the the the the the the the, and the four.. the the the the the the the the the in., and. medals are awarded by the.... the the the the the the the the the the the team in the world
+> of of of references competition for the in of references references references references references references of of of of of the the competition at the university of of references references references references references references references references of of references international references of references references of of of references references gastropods of of of of of of of of of of of of of of of of of of of of of of of of of of external endemic fauna of venezuela fish of of of of of of of of of of of of of of lupha references, of of of tapilo of of references fish described in 2011 cephala,s & co,,, of of of of of of of of of of of of of the court of the, of the high court of the of of of of,,, of, of andrew,,,, of of of labor, of of of of of of of of of of of of of of of the court of the court of of of of of of of of,,,,,,. of buxton,....... " the of of.... the the the the has is shown as be as a.. references. the the of of,,.. rupp,, the.... that there is an implied that of the the. the the..... the the, that there of the part of the - of the the the the the the the..... was later in in the the....... of the court unanimously. the opinion. the....... is a direct. of the the there as a defence of the....................,,,,,,,, 1994. references links links of,,,,,,,,,,,,,,,,,,,, and the references of.,,,,. of of of the premier event of the of of of,,,, references references of of of of of of of of references of of of of.s from the. of of the the the. the there are the in of the national sports ( ( ( ( ). the the the the the the the the a play a the the, and the... again, the, in a triple.. the the the.. medals are the the the the the the disciplines... see also references of of references references references references of of of
 </details>
 
 <details>
-<summary><b>MLM + iterative</b> (460 of 512 tokens masked) -- grammatically coherent but topically drifts</summary>
+<summary><b>MLM + iterative</b> (458 of 512 tokens masked) -- grammatically coherent but topically drifts</summary>
 
-> before 2018. references external links official website 2008 establishments in venezuela iguata populated places in the united states populated places in the philippines international latin american alumni award winners national university of venezuela alumni award for latin american alumni h. g. laurmaque y maquilla ( died 1996 ), president of the university council the record is held by artist. references educated margarita margarita margarita 1955 births living people architects from venezuela 1991 births 2021 deaths accidental deaths in caracas a jury selection at the prix peter pojan, hosted by donald charles tapia baech, richard beaumont and guy shephard 1983. reprint 1998. the notes of united states supreme court and supreme court and justice and related pages. from william a. sk, chicago / strangler publishing / publishing corp., ed. by andrew loew. 1995 : fifteenth - born editions, berkeley.. law publishing 2nd edition 1977 : barbara fernandez, he wrote a book of international law. in : law, war, democracy and society. reprint 2000, by bruce j. klberrie. from the women of the united states : ann barry, the caribbean and...., greeks ( eds. ) theegnous press, 2011 : i. anthony ruffney.. " the part of an american freedom party 2 : 126. " from women to politics '. mildred wellman accused the aclu of firing any other professional if she gets off of her contract with aclu which is a matter of action with a change of duty in australia. legal review bulletin no. 1 - 8. 2011, an australian law review with the understanding that the decision has to be made in australia, and there are legal consequences for the victims of their work in development, the oil industry and to the royal standards of society. the university of maryland press. publications the football club news the aaa ria weekly references truro law books australian brands professional association, the pba association of the pba professional association is the national association for the player's sport of basketball in the professional basketball division of the pba professional association in the pba association. the highest continental association in association with bat is the pbaa grand conference federation. association of players and premier's of the pba was recognised by all the organisations of the pbaa that represented the various groups of pba players in the 1958 pba and the year there were four representatives. the the players who were playing won the gold medal. in march 1963 all the players becoming members of the pbaa in malaysia there won the prg gold and gold commissioner's trophies.
+> , plait - shrimp the black - keeled bow references frogs of venezuela, chitis, proboscis, the world ripper, f. s. ( snake ) the foot brassachitle and hypococcus algae ( exact ) riparia species c. spina ) chitoyaculata the combinosus frogs of the sur sur ocucunodia endemic fauna of venezuela references s. stephens, s. a. walker, j. philip keller ( al. ) and peterson ( bighorn ) grege fish, c. smith ( 1980 ) rio de janeiro publishers ltd, 1984 external links frogs of the atlantic moths of the electoral districts of canada, chapter i : " pierre cecile hassonferere, p. ". forbes. com, june 1984 references living people missing by action politicians of french origin ( canada ) in the 1980 alberta provincial council was elected by the province of north and the alberta's. herald of the rockies, cfr, canada pp. 31 - 53. the province of north columbia was prone to the use of the " star " referring to alberta, a website that was used in the government by alberta's calgary herald, mcc and first bearers for sport college the university of alberta. newspaper was banned in the 1980s by premier of north columbia and used in the field for concern that the congress of alberta - calgary - calgary was held at the conference center of the province of north columbia which was being held in order to keep the newspaper as the venue. this was unanimously reversed in george v. inwal broadcasting corporation. it was presented no special interest in a speech or property libel in the defamation compensation act. the case was found in the quebec landmark case, george v. inwal. in 2006, issue no. xxv of the association was won its first titles in the 2006 british and scottish bowls championships. the 2016 british bowls championship part of the world tour of the british new zealand bowls association also held in the association's 2006 season is the world outdoor bowls championship event. it is the second major outdoor international championship for organized bowls and bowls competitions every year since. in 2008 the world triple bowls triple - triple bowls championships are a international series of international competitions held in six countries that are hosted by each nation. one exception, the world triple bowls world championships in triple bowls triple - triple bowls and world triple bowls triple - triple the bowls, are both levels of international competitions each year. in 2013, the triple bowls triple championship was the second major international team of the year
 </details>
 
 <details>
-<summary><b>DLM + iterative</b> (458 of 512 tokens masked) -- coherent, topically grounded, reads like real encyclopedia text</summary>
+<summary><b>DLM + iterative</b> (465 of 512 tokens masked) -- coherent, topically grounded, reads like real encyclopedia text</summary>
 
-> was nominated for the award for best screenplay, and is nominated for best original screenplay. for best main film the bride at the 1st toronto international film festival. winners external links the bride at the festival website films set in toronto toronto ambellona annuensis is a species of ray - finn dorid fish in the family cerodinonithidae. cerodinoni fish of africa fish described in 1937 taxa named by bernard kiefembee inc. v ( 2005, 355 a. c. ) case inc. v ( 2005 v. s. res.,, september, 2009 ) and that of a landmark supreme court ruling which extends all kinds human rights related to civil rights and political rights to privacy. plaintiffs'infernal discretion rests on the defendant's discretion in the court court speaking as an exception to the jurisprudence of the act of 1949. the third rule applies the courts on matters of compulsory citizenship, immigration, and immigration, migration, privacy, and constitutional freedoms. the court also applies the state authority to give theologia libellaps, which applies only to the court's decision that people may have from criticism of the right of defamation, on one particular basis that is not connected to its own defamation. in broad or general interest a majority in the court had made clear that the amendment of united states as well as the way and means of defamation was a violation of criminal duties and constitutional freedom at the time. the courts also held that the third rule rule was " to be an almost unreasonable " rule, except in the opinion of richardson v. cheney in which the court ruled that damages instead of free speech or any other form of defamation were still upheld in the u. s.. references 2006 in case law case law united states supreme court cases appellate courts case law in united states case case law the arehia division of bowls organised 11 national championships. they include the national rugby confederation of bowls, and the world war ii invitational tournament in asia. events the national rugby union championship for bowls is organised by professional bowls. world championship bowls ( created ) determine the broken minimum for all bowls to be played every year from the rest of the world. since 2019, the event will be held annually. the national bowls world championship is contested annually every consecutive years. it was founded in 1999 for the most. super slam bowls while bowls world slam bowls the premier bowls are contested by three pools of teams, with more than 22 teams winning each of the national bowls world cup. england had a record for the most overall event. the champions
+> the golden nandi award for best overall director. for the film won in the best tamil feature film category for best feature film. films 2010s 2010s 2010s 2010s references external links the film page 2010s tamil language film 2012 films acanthodia percurnela is a species of moth of the family tortricidae. it was described by schiffenee in 1911 and is known from mexico. references endemic fauna of mexico beetles of texas moths described in 1911 moths of mexico taxa named by edward meyrick tribune may refer to : the tribune ( newspaper ), ceased to exist in 2007 the tribune, western australia, weekly newspaper ltd., an australian weekly newspaper the court of the court of the eastern united states, was created on 1 november 1972. on june 5, 1972, speaker of the house g. theos sits as the sitting president of the u. s. house of representatives richard w. hadmon, the president of the u. s. house committee committee, and the associate and presiding judge published an article about the braxton case g. theos authored the merriam case. federal federal courts the court of the united states in 1972 1972 under the name of g. emphal, campbell, & co. in its current government case records, the court decision was written : granting a constitutionality of the court in the united states. in constitutional proceedings, the supreme court has a sitting sitting on the supreme court for 40 years and continues to serve as the court. this decision was held by the current composition of the supreme court of the supreme court since 1978. history of the court dates back to 1965 in s. j. braxton jr. set a record in 1969. still extant, the case remains under legal jurisdiction of the supreme court. references court of the united states 1972 in music ( music ) songs " blue " is an american music video that sees events between two different clubs affiliated to the national american association of associations roman catholic association of the united states. history the video was released on april 25, 2012 on xsc4. the song is held live performances with the fourth big boy. the clip, with three versions of the song upon its release, and was released in july 2016, after wilson was invited to play a solo version of nelly in the song, as a duet. the song became the song's third single in april 2016. performance the song was released as a single in april united states, reaching the billboard hot 100 and number 7 on the hot hot 100 chart. chart certifications in the song, wilson's version
 </details>
 
 ### Key Takeaways
 
-1. **At high mask rates, DLM training + iterative generation produces dramatically more coherent text.** At 90% masking, DLM maintains MAUVE=0.941 while MLM iterative drops to 0.724 and MLM independent collapses to 0.009.
+1. **At high mask rates, DLM training + iterative generation produces dramatically more coherent text.** At 90% masking, DLM maintains MAUVE=0.882 while MLM iterative drops to 0.523 and MLM independent collapses to 0.007.
 
-2. **Token accuracy is misleading.** MLM independent scores highest on per-token accuracy at all mask rates, but at 90% it produces "the the the of of of" -- high-frequency tokens that are individually likely but collectively incoherent.
+2. **Token accuracy is misleading.** MLM independent scores highest on per-token accuracy at all mask rates, but at 90% it produces degenerate repetitive output -- high-frequency tokens that are individually likely but collectively incoherent.
 
 3. **The generation method matters.** At 50%+ masking, MLM + iterative outperforms MLM + independent on MAUVE, showing that the iterative unmasking procedure alone (even with a model not trained for it) produces more coherent output than independent prediction.
 
